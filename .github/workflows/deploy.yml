@@ -20,8 +20,8 @@ jobs:
 
       - name: Install dependencies and test
         run: |
-          pip install -r app/requirements.txt
-          pytest app/tests
+          pip install -r requirements.txt
+          pytest tests
 
       - name: Build Docker image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/flask-ci-cd:latest ./app
