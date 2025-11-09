@@ -1,35 +1,57 @@
-          ┌───────────────────────────────┐
-          │        Developer              │
-          │   Push code to GitHub repo    │
-          └──────────────┬────────────────┘
-                         │
-                         ▼
-          ┌───────────────────────────────┐
-          │        GitHub Actions          │
-          │  - Checkout Code               │
-          │  - Install Requirements        │
-          │  - Run Tests                   │
-          │  - Build Docker Image          │
-          │  - Push to DockerHub           │
-          └──────────────┬────────────────┘
-                         │
-                         ▼
-          ┌───────────────────────────────┐
-          │          DockerHub            │
-          │  Stores Image (flask-ci-cd)   │
-          └──────────────┬────────────────┘
-                         │
-                         ▼
-          ┌───────────────────────────────┐
-          │           AWS EC2             │
-          │ - Pulls latest image          │
-          │ - Runs container              │
-          │ - Exposes port 80             │
-          └──────────────┬────────────────┘
-                         │
-                         ▼
-          ┌───────────────────────────────┐
-          │         End User              │
-          │ Access app via EC2 public IP  │
-          │     http://<ec2-public-ip>    │
-          └───────────────────────────────┘
+               ┌───────────────────────────────┐
+               │          Developer            │
+               │  (pushes code to GitHub)      │
+               └──────────────┬────────────────┘
+                              │
+                              ▼
+                   ┌────────────────────────┐
+                   │   GitHub Actions CI/CD  │
+                   │-------------------------│
+                   │ - Runs Tests (pytest)   │
+                   │ - Builds Docker Image   │
+                   │ - Pushes to Docker Hub  │
+                   │ - SSH Deploys to EC2    │
+                   └──────────────┬──────────┘
+                                  │
+                       SSH & Docker Pull/Run
+                                  │
+                                  ▼
+                   ┌──────────────────────────┐
+                   │     EC2 Instance         │
+                   │--------------------------│
+                   │ - Runs Flask Container   │
+                   │ - Sends Logs to CW Logs  │
+                   │ - Publishes Metrics      │
+                   │   (CPU, Mem, Disk, etc.) │
+                   └──────────────┬───────────┘
+                                  │
+                ┌─────────────────┴─────────────────┐
+                │                                   │
+                ▼                                   ▼
+   ┌──────────────────────┐             ┌──────────────────────┐
+   │  CloudWatch Metrics  │             │ CloudWatch Logs      │
+   │----------------------│             │----------------------│
+   │ - CPU Utilization    │             │ - Syslog             │
+   │ - Disk Usage         │             │ - Docker Logs        │
+   │ - Memory Usage       │             │                      │
+   └──────────┬───────────┘             └──────────┬───────────┘
+              │                                    │
+              ▼                                    │
+   ┌──────────────────────────┐                    │
+   │ CloudWatch Alarm (CPU>80%)│                   │
+   │ Triggers SNS Notification │                   │
+   └──────────┬────────────────┘                   │
+              │ SNS Trigger                        │
+              ▼                                    │
+       ┌────────────────────────┐                  │
+       │ Lambda: Auto-Healing   │                  │
+       │-------------------------│                 │
+       │ - Uses Paramiko (SSH)   │                 │
+       │ - Restarts Flask Docker │                 │
+       │   Container on EC2      │                 │
+       └──────────────┬──────────┘                 │
+                      │                            │
+                      ▼                            │
+         ┌────────────────────────────┐            │
+         │ Healthy Flask App Restored │            │
+         └────────────────────────────┘            │
